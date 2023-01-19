@@ -408,39 +408,3 @@ def update_at_specific_times(y, m, d):
         global_hege_dict = pickle.load(f)
     return roa_px_dict, roa_as2prefixes_dict, as2prefixes_dict, global_hege_dict
 
-
-def main():
-    dt = datetime.datetime.now(timezone.utc)
-    utc_time = dt.replace(tzinfo=timezone.utc)
-    t = str(datetime.datetime.fromtimestamp(
-        utc_time.timestamp(), timezone.utc))
-    date = t.split(' ')[0]
-    y, m, d = date.split('-')
-    y, m, d = '2022', '12', '31'
-    #update_roas(y, m, d)
-    utc_timestamp = utc_time.timestamp() - 3600 * 24
-    t = str(datetime.datetime.fromtimestamp(utc_timestamp, timezone.utc))
-    date = t.split(' ')[0]
-    y, m, d = date.split('-')
-    m = '12'
-    d = '01'
-    #update_CAIDA(y, m, d)
-    #update_GeoIP(y, m, d)
-    utc_timestamp = utc_time.timestamp() - 3600 * 24 * 2
-    t = str(datetime.datetime.fromtimestamp(utc_timestamp, timezone.utc))
-    date = t.split(' ')[0]
-    y, m, d = date.split('-')
-    y = '2021'
-    m = '06'
-    d = '03'
-    update_IHR_global(y, m, d)
-    #update_IHR_local(y, m, d)
-    m = '12'
-    d = '09'
-    #update_P2A(y, m, d)
-    #download_bgpdata()
-    #download_russia_blocked_domain_list()
-
-
-if __name__ == "__main__":
-    main()
