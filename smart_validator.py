@@ -1950,21 +1950,3 @@ def split_file():
     f2.close()
 
 
-def main():
-    # test_live_stream()
-    # long_lived_path = {}
-    # format_groundtruth_data(None)
-    # process_file()
-    # test12()
-    # test13()
-    # test()
-    # format_bgpmon_data()
-    # test()
-    # test05extra()
-    # split_file()
-    # test05extra()
-    test_historical_incidents()
-
-
-if __name__ == "__main__":
-    main()
