@@ -401,7 +401,7 @@ def update_IHR_global(y, m, d):
 
 
 def update_IHR_local(y, m, d):
-    '''
+    
     # https://ihr-archive.iijlab.net/ihr/hegemony/ipv4/local/2022/08/04/ihr_hegemony_ipv4_local_2022-08-04.csv.lz4
     download_path = "https://ihr-archive.iijlab.net/ihr/hegemony/ipv4/local/%s/%s/%s/ihr_hegemony_ipv4_local_%s-%s-%s.csv.lz4" % (
         y, m, d, y, m, d)
@@ -417,7 +417,7 @@ def update_IHR_local(y, m, d):
     today = datetime.datetime(int(y), int(m), int(d),
                               int(00), int(00), int(00))
     today = int(calculate_unix_time(today))
-    '''
+    
     output = "./LocalData/IHR/ihr_hegemony_local.csv"
     local_hege_dict = load_ihr_local_v2(output)
     with open("./LocalData/IHR/local_hege_dict.p", "wb") as fp:
@@ -459,10 +459,6 @@ def download_bgpdata():
                 y, m, d = str(2022), str(m), str(d)
                 process(y, m, d)
     
-
-
-# range,continent_code,continent,country_code,country,city,region,region_code,latitude,longitude,location_accuracy_radius
-
 
 def update_at_specific_times(y, m, d):
     update_roas(y, m, d)
