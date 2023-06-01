@@ -13,10 +13,30 @@ import statistics
 import random
 from scipy.stats import norm
 import joblib
+from ctypes import *
+import numpy as np
+from scipy.spatial import distance
+from builtins import bytes
+import pytricia
+
+class go_string(Structure):
+    _fields_ = [
+        ("p", c_char_p),
+        ("n", c_int)]
+    
+lib = cdll.LoadLibrary(
+    "./mmdb_reader.so")
+
+def accessGeoIP2data(ip):
+    ip = bytes(ip, 'utf-8')
+    ip = go_string(c_char_p(ip), len(ip))
+    lib.lookup.restype = np.ctypeslib.ndpointer(dtype=float, shape=(2,))
+    loc = lib.lookup(ip)
+    return loc[0], loc[1]
 
 def euclidean_distance(coords1, coords2):
     return distance.euclidean(coords1, coords2)
-  
+ 
 def get_locations(prefixes):
     locs = set()
     if len(prefixes) > 500:
@@ -91,7 +111,17 @@ def check_AS_org_v2(caida_as_org, asID, vrpID):
             isSameOrg = True
             return isSameOrg
     return isSameOrg
-  
+
+def is_covered(prefix, vrp_prefix):
+    pyt = None
+    if ':' in vrp_prefix:
+        pyt = pytricia.PyTricia(128)
+    else:
+        pyt = pytricia.PyTricia()
+
+    pyt[vrp_prefix] = 'ROA'
+    return vrp_prefix == pyt.get_key(prefix)
+
 def check_related_origin(as2prefixes_dict, prefix, asID):
     rela = False
     vrp_prefixes = as2prefixes_dict.get(asID)
@@ -100,11 +130,29 @@ def check_related_origin(as2prefixes_dict, prefix, asID):
     for vrp_prefix in vrp_prefixes:
         if vrp_prefix == prefix:
             continue
-        if is_covered_old(prefix, vrp_prefix):  # less-specific prefix matching: prefix is a less-specific prefix
+        if is_covered(prefix, vrp_prefix):  # less-specific prefix matching: prefix is a less-specific prefix
             rela = True
             return rela
     return rela
-  
+
+def check_irr(asID, prefix):
+    irrValid = False
+    matches = []
+    cmd = """ whois -h whois.radb.net %s""" % (
+        prefix)  # query to RADb database
+    try:
+        out = os.popen(cmd).read()
+        if 'No entries found' in out:
+            return irrValid, matches
+        matches = re.findall(r'origin:\s+AS(\d+)', out)
+        asID = str(asID)
+        if asID in matches:
+            irrValid = True
+    except:
+        irrValid = None
+        matches = []
+    return irrValid, matches
+
 def check_irr_v2(irr_database, asID, prefix):
     score = 0
     if irr_database.get(prefix) != None and irr_database.get(prefix) != 1:
