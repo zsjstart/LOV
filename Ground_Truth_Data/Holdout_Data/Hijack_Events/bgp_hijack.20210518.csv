@@ -1,4 +1,4 @@
-time,prefix,asID,OriginMatch,IRR,Parent,SameOrg,PC,Depen,Distance
+time,prefix,as_origin,OriginMatch,IRR,Parent,SameOrg,PC,Depen,Distance
 1621340707,5.199.134.0/24,48467,0.0,0.0,0.0,0.0,0.0,0.0,0.9795467410405896
 1621340707,5.8.88.0/24,48467,0.0,0.0,0.0,0.0,0.0,0.0,0.009006612724667604
 1621340707,31.220.53.0/24,48467,0.0,0.0,0.0,0.0,0.0,0.0,0.9947749870790074
