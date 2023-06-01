@@ -108,14 +108,6 @@ func test() {
 
 func main() {
 	test()
-        /***
-	tm1 := time.Now()
-	ip := "81.2.69.142"
-	loc := lookup(ip)
-	tm2 := time.Now()
-	fmt.Print(tm2.Sub(tm1))
-	fmt.Print(loc)
-	***/
-	
+     
 
 }
