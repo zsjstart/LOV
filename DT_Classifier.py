@@ -196,7 +196,7 @@ def test_validate_data(m):
     ofile = open('./GroundtruthData/holdout_errs.res', 'w')
     for ty in ['benign_conflict']:
         ifile = './GroundtruthData/'+ty + \
-            '.csv'  # benign_misconfiguration.validate
+            '.holdout.csv'  # benign_misconfiguration.validate
         data = pd.read_csv(ifile)  # header = None
         pfxes = data.iloc[:, 1].values
         asIDs = data.iloc[:, 2].values
