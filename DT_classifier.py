@@ -196,7 +196,7 @@ def test_validate_data(m):
     ofile = open('./GroundtruthData/holdout_errs.res', 'w')
     for ty in ['benign_conflict']:
         ifile = './GroundtruthData/'+ty + \
-            '.holdout.csv'  # benign_misconfiguration.validate
+            '.holdout.csv'  # feature files
         data = pd.read_csv(ifile)  # header = None
         pfxes = data.iloc[:, 1].values
         asIDs = data.iloc[:, 2].values
@@ -218,7 +218,7 @@ def test_validate_data(m):
 def test_bgp_hijacks(m):
     accs = []
     file_path = './GroundtruthData/hijack_events'
-    files = os.path.join(file_path, "bgp_hijack.*.csv")
+    files = os.path.join(file_path, "bgp_hijack.*.csv") # feature files
     files = glob.glob(files)
     ntotal = 0
     nerr = 0
@@ -256,7 +256,7 @@ def main():
 
     acc = list()
     for i in range(20, 21): 
-        ifile = './GroundtruthData/202303/all_features.mini.csv'
+        ifile = './GroundtruthData/202303/all_features.mini.csv' 
         data = pd.read_csv(ifile, header=None)  # header = None
         pfxes = data.iloc[:, 1].values
         asIDs = data.iloc[:, 2].values
