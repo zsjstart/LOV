@@ -2,7 +2,7 @@
 # import shutup
 import pybgpstream
 from itertools import groupby
-from smart_validator import validateOriginV2, myParseROA, myMakeROABinaryPrefixDict, calculate_unix_time
+from ROV_analysis import validateOriginV2, myParseROA, myMakeROABinaryPrefixDict, calculate_unix_time
 from datetime import timezone
 import datetime
 import pickle
@@ -176,7 +176,7 @@ def is_bogon_path(hops):
             return True
 
 
-def test_historical_stream(start_date, roa_px_dict, as2prefixes_dict, caida_as_org, caida_as_rel_pc, local_hege_dict, irr_database, clf, whitelist):
+def test_stream_routes(start_date, roa_px_dict, as2prefixes_dict, caida_as_org, caida_as_rel_pc, local_hege_dict, irr_database, clf, whitelist):
     # for start_date in ['2022-08-20', '2022-08-21', '2022-08-22', '2022-08-23', '2022-08-24', '2022-08-25', '2022-08-26']:
     y, m, d = start_date.split(' ')[0].split('-')
     hh, mm, ss = start_date.split(' ')[1].split(':')
@@ -293,187 +293,15 @@ def test_historical_stream(start_date, roa_px_dict, as2prefixes_dict, caida_as_o
         
     
 
-def test_live_stream(start_date, roa_px_dict, as2prefixes_dict, caida_as_org, caida_as_rel_pp, caida_as_rel_pc, local_hege_dict, global_hege_dict, irr_database, clf):
-    stream = pybgpstream.BGPStream(
-        # accessing routeview-stream
-        project="routeviews-stream",
-        # filter to show only stream from amsix bmp stream
-        filter="router wide, router amsix, router chicago",
-    )
-    # validated = {}
-    bogon_asns = {}
-    rovres = {}
-    myres = {}
-    num_validate = 0
-    num_classifi = 0
-    for elem in stream:
-        dt = datetime.datetime.now(timezone.utc)
-        utc_time = dt.replace(tzinfo=timezone.utc)
-        if utc_time.timestamp() > start_date + 300:
-            break
-        if elem.type != 'A':
-            continue
-        timestamp = int(elem.time)
-        # print(utc_time.timestamp(), timestamp)
-        # elem.fields: {'next-hop': '80.77.16.114', 'as-path': '34549 6830 3356 12301', 'communities': {'34549:6830', '6830:23001', '6830:33302', '6830:17000', '34549:100', '6830:17430'}, 'prefix': '91.82.90.0/23'}
-        prefix = elem.fields['prefix']
-        prefix_addr, prefix_len = prefix.split('/')
-        prefix_len = int(prefix_len)
-        peer = str(elem.peer_asn)
-
-        as_path = elem.fields['as-path']
-        if "{" in as_path or ":" in as_path:
-            continue
-        # Get the array of ASns in the AS path and remove repeatedly prepended ASns
-        hops = [k for k, g in groupby(as_path.split(" "))]
-        hops = hops[1:]
-        pathlen = len(hops)
-        # peer is at the second in the AS path
-        if len(hops) > 1 and hops[0] == peer:
-            asID = int(hops[-1])
-            # ignore the ASes of routerview collectors and peer
-            t = (asID, prefix, '+'.join(hops[1:]))
-            if is_bogon_asn(asID):
-                # record bogon asn
-                bogon_asns[t] = 1
-                continue  # block!!!
-            # if t in validated: continue
-            results, invalid = validateOriginV2(
-                prefix_addr, prefix_len, timestamp, "+".join(hops), asID, roa_px_dict, None)
-            # validated[t] = True
-            num_validate = num_validate + 1
-            if invalid is None:
-                continue  # unknown to RPKI, pass
-            rovres[t] = invalid
-            result = results[0]
-            data, leaker = extract_features(result, as2prefixes_dict, caida_as_org, caida_as_rel_pp,
-                                            caida_as_rel_pc, local_hege_dict, global_hege_dict, irr_database, timestamp)
-            num_classifi = num_classifi + 1
-            X_test = np.array(data).reshape(1, 5)
-            prop = clf.predict_proba(X_test)[0]
-            label = np.argmax(prop) + 1
-            # y_pred = list(clf.predict_proba(X_test)[0])
-            # label = y_pred.index(max(y_pred)) + 1
-            myres[t] = [timestamp, asID, prefix,
-                        as_path, label, data[0], leaker]
-    print('Total number of validations: ', num_validate)
-    print('Total number of classifications: ', num_classifi)
-    with open("./bogon_asns.p", "wb") as fp:
-        pickle.dump(dict(bogon_asns), fp)
-    with open("./rovres.p", "wb") as fp:
-        pickle.dump(dict(rovres), fp)
-    with open("./myres.p", "wb") as fp:
-        pickle.dump(dict(myres), fp)
 
 
-def check_AS_path(caida_as_rel_pp, caida_as_rel_pc, as_path):
-    # time overhead is not over 0.01s, which can be negligible
-    valleyFree = True
-    pair1 = None
-    pair2 = None
-    leaker = None
-    # 34800+24961+3356+3257+396998+18779, to make any AS appears no more than once in the AS path
-    g = as_path.split('+')
-    g.reverse()
-    for i in range(1, len(g)-1):
-        found, pair1, pair2 = identify_valley(
-            g[i-1], g[i], g[i+1], caida_as_rel_pc, caida_as_rel_pp)
-        if found:
-            valleyFree = False
-            leaker = g[i]
-            return valleyFree, pair1, pair2, leaker
 
-    return valleyFree, pair1, pair2, leaker
 
-def test_route_leaks(start_date, caida_as_rel_pp, caida_as_rel_pc):
-    y, m, d = start_date.split(' ')[0].split('-')
-    hh, mm, ss = start_date.split(' ')[1].split(':')
-    date = datetime.datetime(int(y), int(m), int(d), int(hh), int(mm), int(ss))
-    utc_timestamp = calculate_unix_time(date)
-    start_timestamp = utc_timestamp
-    msres = {}
-    ofile = open("./route_leak_validated.202304.res", 'w')
-    
-    while utc_timestamp < start_timestamp + 3600*24*30:
-        
-        end_date = str(datetime.datetime.fromtimestamp(utc_timestamp + 3600*24-1, timezone.utc))  # 24 hours
-        #print(start_date, end_date)
-        stream = pybgpstream.BGPStream(
-            # Consider this time interval:
-            # Sat, 01 Aug 2015 7:50:00 GMT -  08:10:00 GMT
-            from_time=start_date, until_time=end_date,
-            # "route-views.wide", "route-views.chicago"
-            collectors=["route-views.amsix"],
-            record_type="updates"
-        )
-        
-        
-        y, m, d = start_date.split(' ')[0].split('-')
-        
-        #leaksres = open("./HistoricalDataAnalysis/route_leak."+y+m+d+".out", 'w')
-        
-        validated = {} # per day
-        
-        for elem in stream:
-            if elem.type != 'A':
-                continue
-            timestamp = int(elem.time)
-            # print(utc_time.timestamp(), timestamp)
-            # elem.fields: {'next-hop': '80.77.16.114', 'as-path': '34549 6830 3356 12301', 'communities': {'34549:6830', '6830:23001', '6830:33302', '6830:17000', '34549:100', '6830:17430'}, 'prefix': '91.82.90.0/23'}
-            prefix = elem.fields['prefix']
-            prefix_addr, prefix_len = prefix.split('/')
-            prefix_len = int(prefix_len)
-            peer = str(elem.peer_asn)
-
-            as_path = elem.fields['as-path']
-            if "{" in as_path or ":" in as_path:
-                continue
-            # Get the array of ASns in the AS path and remove repeatedly prepended ASns
-            hops = [k for k, g in groupby(as_path.split(" "))]
-
-            # peer is at the second in the AS path
-            if len(hops) >= 3 and hops[0] == peer:
-                as_path = "+".join(hops)
-                if as_path in validated: continue
-                valleyFree, pair1, pair2, leaker = check_AS_path(caida_as_rel_pp, caida_as_rel_pc, as_path)
-                validated[as_path] = 1
-                if valleyFree: continue
-                res = [timestamp, prefix, as_path, pair1, pair2, leaker]
-                       
-                
-                leaksres.write(','.join(map(str, res))+'\n')
-           
-                
-                
-        msres[y+m+d] = len(validated)
-        leaksres.close()
-        utc_timestamp = utc_timestamp + 3600*24
-        start_date = str(datetime.datetime.fromtimestamp(utc_timestamp, timezone.utc))
-    
-    for d in msres:
-    	ofile.write(','.join(map(str, [d, msres[d]]))+'\n')
-    ofile.close()        
+     
     
     
 
 
-def test_abnormal(roa_px_dict, as2prefixes_dict, caida_as_org, caida_as_rel_pp, caida_as_rel_pc, local_hege_dict, global_hege_dict, irr_database):
-    line = "1656153511,103.158.87.0/24,3130+6939+132602+10075+141404,141404,141404,24"
-    # 198589, '37.77.48.0/24', '6447 6830 1299 6663 210021 211181 34929 208293 198589'
-    fields = line.split(',')
-    prefix = fields[1]
-    prefix_addr, prefix_len = prefix.split('/')
-    prefix_len = int(prefix_len)
-    timestamp = int(fields[0])
-    asID = int(fields[3])
-    check_AS_path(caida_as_rel_pp, caida_as_rel_pc,
-                  fields[2], local_hege_dict)  # not feasible
-    # results, invalid = validateOriginV2(prefix_addr, prefix_len, timestamp, fields[2], asID, roa_px_dict, None)
-    # result = results[0]
-    # data = extract_features(result, as2prefixes_dict, caida_as_org, caida_as_rel_pp, caida_as_rel_pc, local_hege_dict, global_hege_dict, irr_database, timestamp)
-
-
-logging.basicConfig(level=logging.INFO, filename='./test_live_stream.log')
 
 
 def main():
@@ -520,20 +348,11 @@ def main():
     #start_date = utc_time.timestamp()
     # test_live_stream(start_date, roa_px_dict, as2prefixes_dict, caida_as_org, caida_as_rel_pp, caida_as_rel_pc, local_hege_dict, global_hege_dict, irr_database, clf)
     start_date = '2023-03-01 08:00:00'
-    test_historical_stream(start_date, roa_px_dict, as2prefixes_dict, caida_as_org, caida_as_rel_pc, local_hege_dict, irr_database, clf, whitelist)
+    test_stream_routes(start_date, roa_px_dict, as2prefixes_dict, caida_as_org, caida_as_rel_pc, local_hege_dict, irr_database, clf, whitelist)
     with open(basic_path+'/IRR/irr_database.p', "wb") as fp:
         pickle.dump(dict(irr_database), fp)
 
 
 if __name__ == "__main__":
-    # main()
-    # historical_data_analysis()
-    basic_path = './LocalData'
-    start_date = '2023-04-01 00:00:00'
-    caida_as_rel_pp = {}
-    with open(basic_path+'/CAIDA/caida_as_rel_pp.p', "rb") as f:
-        caida_as_rel_pp = pickle.load(f)
-    caida_as_rel_pc = {}
-    with open(basic_path+'/CAIDA/caida_as_rel_pc.p', "rb") as f:
-        caida_as_rel_pc = pickle.load(f)
-    test_route_leaks(start_date, caida_as_rel_pp, caida_as_rel_pc)
+    main()
+    
