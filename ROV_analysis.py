@@ -17,6 +17,15 @@ import re
 import pickle
 import pandas as pd
 
+def calculate_unix_time(date_and_time):
+    '''
+    Calculate unix time elapsed from a datetime object
+    @param: date_and_time (datetime): datetime object
+    @return: Seconds elapsed using unix reference (int)
+    '''
+    return int((date_and_time - datetime.datetime.utcfromtimestamp(0)).total_seconds())
+
+
 def validateOriginV2(prefix_addr, prefix_len, timestamp, as_path, asID, roa_px_dict, time):
     """
         This implementation is based on RFC 6811; Section 2
