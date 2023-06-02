@@ -6,7 +6,6 @@ from ROV_analysis import validateOriginV2, myParseROA, myMakeROABinaryPrefixDict
 from datetime import timezone
 import datetime
 import pickle
-# from feature_extractor import is_bogon_asn, compute_two_scores_v2, compute_score3, compute_pfx_distance, compute_hege_depth_v2, identify_valley
 import time
 import os
 import re
@@ -51,65 +50,6 @@ def load_ROAs(roa_path):
     roas, ipv4_dict, ipv6_dict = myMakeROABinaryPrefixDict(list_roas)
     roa_px_dict = (roas, ipv4_dict, ipv6_dict)
     return roa_px_dict
-
-
-def extract_features(results, as2prefixes_dict, roa_as2prefixes_dict, caida_as_org, caida_as_rel_pp, caida_as_rel_pc, local_hege_dict, global_hege_dict, irr_database, timestamp):
-    _, prefix_addr, prefix_len, as_path, asID, res, _, covered_prefix = results[0].split(
-        ' ')
-    asID = int(asID)
-    vrpIDs = []
-    for res in results:  # MOAS
-        vrpIDs.append(int(res.split(' ')[-2]))
-    prefix = prefix_addr+'/'+str(prefix_len)
-    prefix_len = int(prefix_len)
-    maxlen = covered_prefix.split('-')[-1]
-    maxlen = int(maxlen)
-
-    origin_matching = 0
-    maxlength_matching = 0
-    if asID in vrpIDs:
-        origin_matching = 1
-    if prefix_len <= maxlen:
-        maxlength_matching = 1
-
-    rpki_status = 0
-    if origin_matching == 1 and maxlength_matching == 1:
-        rpki_status = 1
-
-    confi_score = 0
-    score0 = 0
-    score1 = 0
-    score2 = 0
-    score3 = 0
-    score4 = 0
-    hops = as_path.split('+')
-    start = time.monotonic()
-
-    scores = []
-    for vrpID in vrpIDs:
-        score0, score1, score2, score3, score4, confi_score = compute_two_scores_new(
-            origin_matching, caida_as_org, caida_as_rel_pc, roa_as2prefixes_dict, timestamp, prefix, asID, vrpID, '+'.join(hops), local_hege_dict, irr_database)
-        scores.append((score0, score1, score2, score3, score4, confi_score))
-    confi_scores = []
-    for s in scores:
-        confi_scores.append(s[-1])
-    maximum = max(confi_scores)
-    for s in scores:
-        if s[-1] == maximum:
-            score0, score1, score2, score3, score4, confi_score = s[0], s[1], s[2], s[3], s[4], s[5]
-
-    path_score, pair1, pair2, leaker = compute_score3(
-        caida_as_rel_pp, caida_as_rel_pc, as_path)
-    valleydepth, Hes = 0.0, []
-    if leaker != None:
-        valleydepth, Hes = compute_hege_depth_v2(
-            timestamp, hops, global_hege_dict)
-    if origin_matching == 1:
-        distance = 0.0
-    else:
-        distance = compute_pfx_distance(as2prefixes_dict, prefix, asID)
-    path_anomaly = path_score+valleydepth
-    return [rpki_status, confi_score, distance, path_anomaly], [origin_matching, score0, score1, score2, score3, score4], vrpIDs, leaker
 
 def extract_features_v2(results, as2prefixes_dict, caida_as_org, caida_as_rel_pc, local_hege_dict, irr_database, timestamp):
     _, prefix_addr, prefix_len, as_path, asID, _, vrpIDs = results[0].split(' ')
