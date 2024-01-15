@@ -1,2 +1,2 @@
 # LOV
-We develop Lov, an extension to ROV, to mitigate the risk of losing legitimate traffic due to benign errors. LOV distinguishes benign conflicts from BGP hijacks, and only blocks hijacks while saving legitimate traffic.
+We develop, Learning Origin Validation (LOV), a new mechanism specifically crafted to whitelist benign conflicts on the Internet-wide scale. The generated whitelist is offered to the ASes that employ ROV to validate RPKI-invalid routes. This involves matching the RPKI-invalid routes against the whitelist. If a match is found, the routes are considered benign, and border routers refrain from blocking them.
